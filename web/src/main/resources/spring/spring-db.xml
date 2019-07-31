@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:tx="http://www.springframework.org/schema/tx"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx.xsd">
+    <bean id = "pdatasource" class="com.alibaba.druid.pool.DruidDataSource">
+
+        <!-- Connection Pooling Info -->
+        <property name="filters" value="wall,stat,log4j"/>
+        <property name="maxActive" value="${jdbc.pool.maxActive}"/>
+        <property name="initialSize" value="${jdbc.pool.initialSize}"/>
+        <property name="maxWait" value="${jdbc.pool.maxWait}"/>
+        <property name="minIdle" value="${jdbc.pool.minIdle}"/>
+        <property name="timeBetweenEvictionRunsMillis" value="${jdbc.pool.timeBetweenEvictionRunsMillis}"/>
+        <property name="minEvictableIdleTimeMillis" value="${jdbc.pool.minEvictableIdleTimeMillis}"/>
+        <property name="validationQuery" value="SELECT 'x'"/>
+        <property name="testWhileIdle" value="true"/>
+        <property name="testOnBorrow" value="false"/>
+        <property name="testOnReturn" value="false"/>
+        <property name="maxPoolPreparedStatementPerConnectionSize"
+                  value="${jdbc.pool.maxPoolPreparedStatementPerConnectionSize}"/>
+        <!--设置编码字符集-->
+        <property name="connectionInitSqls" value="set names utf8mb4"/>
+        <!--监控信息输出到日志的时间-->
+        <property name="timeBetweenLogStatsMillis" value="300000"/>
+    </bean>
+
+    <bean id="readDataSource" parent="pdatasource">
+        <property name="driverClassName" value="${jdbc.driver}"/>
+        <property name="url" value="${jdbc.readonly.url}"/>
+        <property name="username" value="${jdbc.read.user}"/>
+        <property name="password" value="${jdbc.password}"/>
+    </bean>
+    <bean id="writerDataSource" parent="pdatasource">
+        <property name="driverClassName" value="${jdbc.driver}"/>
+        <property name="url" value="${jdbc.url}"/>
+        <property name="username" value="${jdbc.user}"/>
+        <property name="password" value="${jdbc.password}"/>
+    </bean>
+
+    <bean id="datasource" class="jpj.core.mybatisplugin.datasource.MyDatasoure">
+        <property name="defaultTargetDataSource" ref="writerDataSource" />
+        <property name="targetDataSources">
+            <map key-type="jpj.core.mybatisplugin.datasource.DataSourceEnum" value-type="com.alibaba.druid.pool.DruidDataSource">
+                <entry key="READ" value-ref="readDataSource"/>
+                <entry key="WRITER" value-ref="writerDataSource"/>
+            </map>
+        </property>
+    </bean>
+    <!-- sqlSessionFactory -->
+    <bean id="cBusinessSqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+        <property name="dataSource" ref="datasource"/>
+        <property name="typeAliasesPackage" value="jpj.biz.entity"/>
+        <property name="configLocation" value="classpath:mybatis/mybatis-config.xml"/>
+        <property name="mapperLocations">
+        <array>
+            <value>classpath:jpj/biz/dao/*Mapper.xml</value>
+        </array>
+    </property>
+        <property name="plugins">
+            <list>
+                <!--&lt;!&ndash;page interceptor&ndash;&gt;-->
+                <!--<bean class="com.yongjun.loan.core.db.QueryInterceptor"/>-->
+            </list>
+        </property>
+    </bean>
+
+    <!--  MyBatis MapperScannerConfigurer -->
+    <bean id="xBusinessMapperScannerConfigurer" class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+        <property name="basePackage" value="jpj.biz.dao"/>
+        <property name="sqlSessionFactoryBeanName" value="cBusinessSqlSessionFactory"/>
+    </bean>
+
+    <!-- 事务管理器 -->
+    <bean id="txManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+        <property name="dataSource" ref="datasource" />
+    </bean>
+    <!-- 开启事务(注解) -->
+    <tx:annotation-driven transaction-manager="txManager"/>
+</beans>
